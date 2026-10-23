@@ -1,0 +1,15 @@
+/* Favorites: grouped cards, two per row on a phone, each with a small lit-up piano. */
+.fav-group { margin: 0 0 22px; }
+.fav-group h2 { margin: 0 0 10px; font-size: 1.1rem; color: var(--heading); }
+.fav-group h2 span { color: var(--muted); font-weight: 400; }
+.fav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.fav-card { position: relative; background: var(--card); border-radius: 16px; box-shadow: 0 1px 3px var(--shadow); }
+.fav-link { display: block; padding: 12px 12px 12px; color: inherit; text-decoration: none; }
+.fav-name { display: block; font-size: 1.15rem; font-weight: 700; color: var(--heading); padding-right: 34px; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fav-piano { display: block; }
+.fav-star { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--yellow);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.fav-star svg { width: 20px; height: 20px; fill: var(--yellow); stroke: var(--yellow); stroke-width: 2; stroke-linejoin: round; }
+.fav-empty { text-align: center; padding: 48px 16px; color: var(--muted); }
+.fav-empty .big { font-size: 3rem; display: block; margin-bottom: 8px; }
+.fav-empty a { display: inline-block; margin-top: 14px; background: var(--yellow); color: var(--on-yellow); text-decoration: none; font-weight: 700; padding: 10px 22px; border-radius: 999px; }

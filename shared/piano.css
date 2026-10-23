@@ -1,0 +1,15 @@
+/* The keyboard drawing (full size and the small picture used by Favorites). */
+.keyboard { width: 100%; height: auto; display: block; }
+.white { fill: var(--key-white); stroke: var(--key-stroke); stroke-width: 1; }
+.black { fill: var(--key-black); stroke: #000; }
+.white.on { fill: var(--blue-light); }
+.black.on { fill: var(--blue); }
+.white.root { fill: var(--yellow-light); }
+.black.root { fill: var(--yellow); }
+.dot { fill: var(--blue); stroke: #fff; stroke-width: 2; }
+.dot.root { fill: var(--yellow); }
+.label { font: 600 14px var(--font); text-anchor: middle; fill: #1D1D1F; }
+.black-label { fill: #fff; }
+.black-label.root { fill: #1D1D1F; }
+/* small picture: thin lines that stay thin when the keyboard is scaled down */
+.mini rect { vector-effect: non-scaling-stroke; stroke-width: 1; }

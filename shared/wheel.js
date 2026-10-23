@@ -1,0 +1,154 @@
+// The curved, endless wheel used by the pickers (shared by tiles that need a note + type picker).
+// ---------- Curved wheel ----------
+// An endless wheel. The selected row sits at the bottom, where the two wheels meet, with two earlier
+// rows above it. The rows follow a big curve, so the rows above are pushed away from the middle and
+// each panel's top corner is rounded to match (the left wheel like ╮, the right wheel like ╭).
+// Drag, scroll or use the arrow keys to spin; the round button opens a full list.
+function createWheel(container, side, getLabel, getSublabel, onChange) {
+  const ROW = 48;
+  const CY = 120;          // y of the selected row's centre
+  const VR = 120;          // vertical radius of the curve (selected row up to the top of the panel)
+  const el = document.createElement("div");
+  el.className = "cwheel " + side;
+  el.tabIndex = 0;
+  el.setAttribute("role", "slider");
+  el.setAttribute("aria-label", container.getAttribute("aria-label") || "Wheel");
+  container.appendChild(el);
+
+  let options = [], items = [], pos = 0, lastIndex = 0, anim = 0, dropdown = null, openedAt = 0, hr = 150;
+  const len = () => options.length;
+  const mod = (x, n) => ((x % n) + n) % n;
+  const shortest = (d) => { d = mod(d, len()); return d > len() / 2 ? d - len() : d; };
+
+  // The curve is an ellipse HR wide and VR tall. Rows are indented by how far the curve has moved in.
+  function shape() {
+    const w = el.clientWidth;
+    if (!w) return;
+    hr = Math.max(60, Math.min(150, w - 22));
+    el.style.borderRadius = side === "left"
+      ? `14px ${hr}px 14px 14px / 14px ${VR}px 14px 14px`
+      : `${hr}px 14px 14px 14px / ${VR}px 14px 14px 14px`;
+  }
+
+  function update() {
+    const sel = mod(Math.round(pos), len());
+    items.forEach((it, k) => {
+      const d = shortest(k - pos), ad = Math.abs(d), dy = d * ROW;
+      const off = hr * (1 - Math.sqrt(Math.max(0, 1 - (dy * dy) / (VR * VR))));
+      const o = d > 0 ? Math.max(0, 1 - d * 2) : ad <= 1 ? 1 - 0.4 * ad : Math.max(0, 0.6 - 0.3 * (ad - 1));
+      it.style.transform = `translate(${side === "left" ? -off : off}px, ${CY + dy}px) translateY(-50%)`;
+      it.style.opacity = o;
+      it.style.visibility = o <= 0 ? "hidden" : "visible";
+      it.classList.toggle("selected", k === sel);
+    });
+    el.setAttribute("aria-valuetext", options[sel] ? String(getLabel(options[sel])) : "");
+  }
+  new ResizeObserver(() => { shape(); update(); }).observe(el);
+
+  // The selection follows the wheel live, so the chord updates while you spin.
+  function setPos(p) {
+    pos = p;
+    update();
+    const idx = mod(Math.round(pos), len());
+    if (idx !== lastIndex) { lastIndex = idx; onChange(options[idx]); }
+  }
+
+  function animateTo(target, dur = 220) {
+    cancelAnimationFrame(anim);
+    const from = pos, t0 = performance.now();
+    const frame = (now) => {
+      const t = Math.min(1, (now - t0) / dur);
+      setPos(from + (target - from) * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) anim = requestAnimationFrame(frame);
+    };
+    anim = requestAnimationFrame(frame);
+  }
+  const goTo = (i) => animateTo(pos + shortest(i - pos));
+
+  // ----- the full list (round button), with the spelled-out names -----
+  const closeDropdown = () => { if (dropdown) { dropdown.remove(); dropdown = null; } };
+  const openDropdown = () => {
+    closeDropdown();
+    openedAt = performance.now();
+    dropdown = document.createElement("div");
+    dropdown.className = "dropdown";
+    options.forEach((opt, i) => {
+      const b = document.createElement("button");
+      const sub = getSublabel(opt);
+      b.innerHTML = `<span>${getLabel(opt)}</span>` + (sub ? `<small>${sub}</small>` : "");
+      if (i === lastIndex) b.classList.add("selected");
+      // A quick tap on a phone is followed by a late "click" at the same spot, which would land on
+      // the row that just appeared under the finger. Ignore clicks right after opening.
+      b.onclick = () => { if (performance.now() - openedAt < 400) return; goTo(i); closeDropdown(); };
+      dropdown.appendChild(b);
+    });
+    container.appendChild(dropdown);
+    const selEl = dropdown.querySelector(".selected");
+    if (selEl) selEl.scrollIntoView({ block: "center" });
+  };
+  document.addEventListener("click", (e) => { if (dropdown && !container.contains(e.target)) closeDropdown(); });
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "wheel-btn";
+  btn.setAttribute("aria-label", "Show all choices");
+  btn.title = "Show all";
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  btn.addEventListener("click", openDropdown);
+  container.appendChild(btn);
+
+  // ----- dragging: vertical, one row per ROW pixels -----
+  let drag = null;
+  el.addEventListener("pointerdown", (e) => {
+    cancelAnimationFrame(anim);
+    el.setPointerCapture(e.pointerId);
+    drag = { x: e.clientX, y: e.clientY, last: e.clientY, moved: false, samples: [] };
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 5) drag.moved = true;
+    if (!drag.moved) return;
+    setPos(pos - (e.clientY - drag.last) / ROW);
+    drag.last = e.clientY;
+    drag.samples.push({ t: performance.now(), p: pos });
+    if (drag.samples.length > 6) drag.samples.shift();
+  });
+  const release = () => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (!d.moved) {          // a tap on a row above the selected one steps to it
+      const row = Math.round((d.y - el.getBoundingClientRect().top - CY) / ROW);
+      if (row < 0) animateTo(Math.round(pos) + Math.max(-2, row));
+      return;
+    }
+    const s = d.samples, first = s[0], last = s[s.length - 1];
+    const v = first && last && last.t > first.t ? (last.p - first.p) / (last.t - first.t) : 0;   // rows per ms
+    animateTo(Math.round(pos + Math.max(-4, Math.min(4, v * 160))), 260);
+  };
+  el.addEventListener("pointerup", release);
+  el.addEventListener("pointercancel", release);
+  el.addEventListener("wheel", (e) => { e.preventDefault(); animateTo(Math.round(pos) + (e.deltaY > 0 ? 1 : -1)); }, { passive: false });
+  el.addEventListener("keydown", (e) => {
+    const step = { ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 }[e.key];
+    if (step) { e.preventDefault(); animateTo(Math.round(pos) + step); }
+  });
+
+  // Replace the wheel's contents (used when settings change labels or the option list). Does not fire onChange.
+  return {
+    setOptions(newOptions, newIndex) {
+      cancelAnimationFrame(anim);
+      closeDropdown();
+      options = newOptions; pos = lastIndex = newIndex;
+      items.forEach((it) => it.remove());
+      items = options.map((opt) => {
+        const it = document.createElement("div");
+        it.className = "citem";
+        it.textContent = getLabel(opt);
+        el.appendChild(it);
+        return it;
+      });
+      shape();
+      update();
+    },
+  };
+}
